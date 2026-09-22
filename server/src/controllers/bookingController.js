@@ -1,46 +1,160 @@
+import Joi from 'joi';
 import { Booking } from '../models/Booking.js';
 
-// TODO: write a validation schema for create/update per README.md section 2.
+const bookingFields = {
+  roomNumber: Joi.string().trim().min(1).max(60),
+  startDate: Joi.date().iso(),
+  endDate: Joi.date().iso(),
+  purpose: Joi.string().trim().max(500).allow(''),
+  bookedBy: Joi.string().hex().length(24)
+};
 
-// TODO: per README.md section 4, you will need a way to detect whether a
-// proposed booking conflicts with an existing one on the same room.
+const createSchema = Joi.object({
+  ...bookingFields,
+  roomNumber: bookingFields.roomNumber.required(),
+  startDate: bookingFields.startDate.required(),
+  endDate: bookingFields.endDate.required()
+});
 
-// GET /api/bookings
-// TODO: implement per README.md section 3.
+const updateSchema = Joi.object(bookingFields).min(1);
+
+function validateDateRange(value) {
+  if (value.startDate >= value.endDate) {
+    return 'startDate must be before endDate';
+  }
+
+  return null;
+}
+
+async function findConflict(booking, excludeId) {
+  const query = {
+    roomNumber: booking.roomNumber,
+    startDate: { $lt: booking.endDate },
+    endDate: { $gt: booking.startDate }
+  };
+
+  if (excludeId) {
+    query._id = { $ne: excludeId };
+  }
+
+  return Booking.findOne(query);
+}
+
 export async function getAllBookings(req, res, next) {
   try {
-    // TODO
-  } catch (err) { next(err); }
+    const bookings = await Booking.find()
+      .populate('bookedBy', 'name email')
+      .sort({ startDate: 1 });
+
+    res.json({ bookings });
+  } catch (err) {
+    next(err);
+  }
 }
 
-// GET /api/bookings/:id
-// TODO: implement per README.md sections 3 and 5.
 export async function getBooking(req, res, next) {
   try {
-    // TODO
-  } catch (err) { next(err); }
+    const booking = await Booking.findById(req.params.id)
+      .populate('bookedBy', 'name email');
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    res.json({ booking });
+  } catch (err) {
+    next(err);
+  }
 }
 
-// POST /api/bookings
-// TODO: implement per README.md sections 3 and 4.
 export async function createBooking(req, res, next) {
   try {
-    // TODO
-  } catch (err) { next(err); }
+    const { value, error } = createSchema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true
+    });
+
+    if (error) {
+      return res.status(400).json({ message: error.message });
+    }
+
+    const dateError = validateDateRange(value);
+
+    if (dateError) {
+      return res.status(400).json({ message: dateError });
+    }
+
+    if (await findConflict(value)) {
+      return res.status(409).json({
+        message: 'Booking conflicts with an existing booking'
+      });
+    }
+
+    const booking = await Booking.create(value);
+    await booking.populate('bookedBy', 'name email');
+
+    res.status(201).json({ booking });
+  } catch (err) {
+    next(err);
+  }
 }
 
-// PATCH /api/bookings/:id
-// TODO: implement per README.md sections 3, 4, and 5.
 export async function updateBooking(req, res, next) {
   try {
-    // TODO
-  } catch (err) { next(err); }
+    const { value, error } = updateSchema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true
+    });
+
+    if (error) {
+      return res.status(400).json({ message: error.message });
+    }
+
+    const currentBooking = await Booking.findById(req.params.id);
+
+    if (!currentBooking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    const proposedBooking = {
+      ...currentBooking.toObject(),
+      ...value
+    };
+
+    const dateError = validateDateRange(proposedBooking);
+
+    if (dateError) {
+      return res.status(400).json({ message: dateError });
+    }
+
+    if (await findConflict(proposedBooking, currentBooking._id)) {
+      return res.status(409).json({
+        message: 'Booking conflicts with an existing booking'
+      });
+    }
+
+    const booking = await Booking.findByIdAndUpdate(
+      req.params.id,
+      { $set: value },
+      { new: true, runValidators: true }
+    ).populate('bookedBy', 'name email');
+
+    res.json({ booking });
+  } catch (err) {
+    next(err);
+  }
 }
 
-// DELETE /api/bookings/:id
-// TODO: implement per README.md sections 3 and 5.
 export async function deleteBooking(req, res, next) {
   try {
-    // TODO
-  } catch (err) { next(err); }
+    const booking = await Booking.findByIdAndDelete(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
 }
