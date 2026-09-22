@@ -14,7 +14,9 @@ const createSchema = joi.object({
 const updateSchema = joi.object({
   roomNumber: joi.string(),
   startDate: joi.date(),
-  endDate: joi.date(),
+  endDate: joi.date().greater(joi.ref('startDate')).required().messages({
+    'date.greater': '"endDate" must be after "startDate"',
+  }),
   purpose: joi.string(),
   bookedBy: joi.string(),
 });
