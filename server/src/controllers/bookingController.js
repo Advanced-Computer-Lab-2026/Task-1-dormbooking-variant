@@ -141,7 +141,7 @@ export async function updateBooking(req, res, next) {
     }
 
 
-   .
+   
     const roomNumber =
       value.roomNumber ?? existingBooking.roomNumber;
 
