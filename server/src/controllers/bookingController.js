@@ -4,7 +4,9 @@ import joi from 'joi';
 const createSchema = joi.object({
   roomNumber: joi.string().required(),
   startDate: joi.date().required(),
-  endDate: joi.date().required(),
+  endDate: joi.date().greater(joi.ref('startDate')).required().messages({
+    'date.greater': '"endDate" must be after "startDate"',
+  }),
   purpose: joi.string().optional(),
   bookedBy: joi.string().optional(),
 });
@@ -100,10 +102,27 @@ export async function updateBooking(req, res, next) {
       });
     }
 
-    const conflict = await Booking.findOne({       
-      roomNumber:value.roomNumber,
-      startDate: { $lt: value.endDate },
-      endDate: { $gt: value.startDate },
+    // Fetch existing so we can merge dates for partial updates
+    const existing = await Booking.findById(id);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    const startDate = value.startDate ?? existing.startDate;
+    const endDate   = value.endDate   ?? existing.endDate;
+
+    if (endDate <= startDate) {
+      return res.status(400).json({
+        success: false,
+        message: '"endDate" must be after "startDate"',
+      });
+    }
+
+    const conflict = await Booking.findOne({
+      _id: { $ne: id },
+      roomNumber: value.roomNumber ?? existing.roomNumber,
+      startDate: { $lt: endDate },
+      endDate: { $gt: startDate },
     });
 
     if (conflict) {
