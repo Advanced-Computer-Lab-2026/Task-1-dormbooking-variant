@@ -67,21 +67,45 @@ export async function createBooking(req, res, next) {
 // TODO: implement per README.md sections 3, 4, and 5.
 export async function updateBooking(req, res, next) {
   try {
-        const { value, error } = updateSchema.validate(req.body, { abortEarly: false, stripUnknown: true });
-        if (error) return res.status(400).json({ message: error.message });
-    
-         const existing = await Booking.findOne({ roomNumber: value.roomNumber, _id: { $ne: req.params.id } ,
-          $or: [
-            { startDate: { $lte: value.endDate, $gte: value.startDate } },
-            { endDate: { $gte: value.startDate, $lte: value.endDate } }
-          ]
-        }).and('startDate', 'endDate');
-        if (existing) return res.status(409).json({ message: 'Room is already booked for the selected period' });
+    const { value, error } = updateSchema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true
+    });
+    if (error) return res.status(400).json({ message: error.message });
 
+    // 1. Fetch the existing booking
+    const current = await Booking.findById(req.params.id);
+    if (!current) return res.status(404).json({ message: 'Booking not found' });
 
-        const doc = await Booking.findByIdAndUpdate(req.params.id, { $set: value }, { new: true, runValidators: true }).populate('bookedBy');
-        if (!doc) return res.status(404).json({ message: 'Booking not found' });
-        res.json({ booking: publicbooking(doc) });
+    // 2. Merge old + new so nothing is undefined
+    const merged = {
+      roomNumber: value.roomNumber ?? current.roomNumber,
+      startDate:  value.startDate  ?? current.startDate,
+      endDate:    value.endDate    ?? current.endDate
+    };
+
+    // 3. Overlap check using merged values
+    const existing = await Booking.findOne({
+      _id: { $ne: req.params.id },
+      roomNumber: merged.roomNumber,
+      $or: [
+        { startDate: { $lte: merged.endDate, $gte: merged.startDate } },
+        { endDate:   { $gte: merged.startDate, $lte: merged.endDate } }
+      ]
+    });
+    if (existing) {
+      return res.status(409).json({ message: 'Room is already booked for the selected period' });
+    }
+
+    // 4. Apply the update
+    const doc = await Booking.findByIdAndUpdate(
+      req.params.id,
+      { $set: value },
+      { new: true, runValidators: true }
+    ).populate('bookedBy');
+
+    if (!doc) return res.status(404).json({ message: 'Booking not found' });
+    res.json({ booking: publicbooking(doc) });
   } catch (err) { next(err); }
 }
 
