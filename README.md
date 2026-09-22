@@ -24,7 +24,7 @@ Run `npm install` then `npm run dev` inside `server/` once you've filled in
 the TODOs below. There is no `.env` provided — create your own
 `server/.env` (it's git-ignored) with the keys below.
 
-## Database connection
+## Database connection DONE
 
 Create `server/.env` yourself with:
 
