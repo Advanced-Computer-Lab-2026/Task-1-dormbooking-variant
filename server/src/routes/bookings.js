@@ -9,6 +9,13 @@ import {
 
 const router = Router();
 
-// TODO: wire up the routes described in README.md section 3.
+router.route('/')
+  .get(getAllBookings)
+  .post(createBooking);
+
+router.route('/:id')
+  .get(getBooking)
+  .patch(updateBooking)
+  .delete(deleteBooking);
 
 export default router;
