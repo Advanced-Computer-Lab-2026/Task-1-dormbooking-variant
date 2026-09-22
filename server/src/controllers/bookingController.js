@@ -90,7 +90,7 @@ export async function updateBooking(req, res, next) {
       startDate: value.startDate ?? current.startDate,
       endDate: value.endDate ?? current.endDate,
       purpose: value.purpose ?? current.purpose,
-      bookedBy: value.bookedBy ?? current.bookedBy
+      bookedBy: value.bookedBy ?? current.bookedBy?.toString()
     };
 
     const dateError = createSchema.validate(proposed).error;
