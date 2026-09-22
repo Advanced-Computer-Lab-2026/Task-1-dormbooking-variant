@@ -4,7 +4,7 @@ import joi from 'joi';
 const createSchema = joi.object({
   roomNumber: joi.string().required(),
   startDate: joi.date().required(),
-  endDate: joi.date().greater(joi.ref('startDate')).required(),
+  endDate: joi.date().required(),
   purpose: joi.string().optional(),
   bookedBy: joi.string().optional(),
 });
@@ -101,7 +101,7 @@ export async function updateBooking(req, res, next) {
     }
 
     const conflict = await Booking.findOne({       
-      roomNumber,
+      roomNumber:value.roomNumber,
       startDate: { $lt: value.endDate },
       endDate: { $gt: value.startDate },
     });
