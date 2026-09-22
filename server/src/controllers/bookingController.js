@@ -4,7 +4,7 @@ import joi from 'joi';
 const createSchema = joi.object({
   roomNumber: joi.string().required(),
   startDate: joi.date().required(),
-  endDate: joi.date().greater(joi.ref('startDate')).required(),
+  endDate: joi.date().greater(joi.ref('startDate')).required().messages({'date.greater': 'Timing is wrong', }),
   purpose: joi.string().optional(),
   bookedBy: joi.string().optional(),
 });
@@ -12,12 +12,11 @@ const createSchema = joi.object({
 const updateSchema = joi.object({
   roomNumber: joi.string(),
   startDate: joi.date(),
-  endDate: joi.date(),
+  endDate: joi.date().greater(joi.ref('startDate')).required().messages({'date.greater': 'Timing is wrong', }),
   purpose: joi.string(),
   bookedBy: joi.string(),
 });
 
-// GET /api/bookings
 export async function getAllBookings(req, res, next) {
   try {
     const bookings = await Booking.find().populate('bookedBy', 'name email');
@@ -31,7 +30,6 @@ export async function getAllBookings(req, res, next) {
   }
 }
 
-// GET /api/bookings/:id
 export async function getBooking(req, res, next) {
   try {
     const { id } = req.params;
@@ -52,7 +50,6 @@ export async function getBooking(req, res, next) {
   }
 }
 
-// POST /api/bookings
 export async function createBooking(req, res, next) {
   try {
     const { error, value } = createSchema.validate(req.body);
@@ -87,7 +84,6 @@ export async function createBooking(req, res, next) {
   }
 }
 
-// PATCH /api/bookings/:id
 export async function updateBooking(req, res, next) {
   try {
     const { id } = req.params;
@@ -101,7 +97,7 @@ export async function updateBooking(req, res, next) {
     }
 
     const conflict = await Booking.findOne({       
-      roomNumber,
+      roomNumber : value.roomNumber,
       startDate: { $lt: value.endDate },
       endDate: { $gt: value.startDate },
     });
@@ -124,7 +120,6 @@ export async function updateBooking(req, res, next) {
   }
 }
 
-// DELETE /api/bookings/:id
 export async function deleteBooking(req, res, next) {
   try {
     const { id } = req.params;
